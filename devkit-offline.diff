@@ -1,0 +1,28 @@
+diff --git a/build-devkit.sh b/build-devkit.sh
+index 33d9f6c..af47873 100755
+--- a/build-devkit.sh
++++ b/build-devkit.sh
+@@ -95,15 +95,6 @@ fi
+
+ [ ! -z "$INSTALLDIR" ] && mkdir -p $INSTALLDIR && touch $INSTALLDIR/nonexistantfile && rm $INSTALLDIR/nonexistantfile || exit 1;
+
+-if test "`curl -V`"; then
+-	FETCH="curl -f -L -O"
+-elif test "`wget -V`"; then
+-	FETCH=wget
+-else
+-	echo "ERROR: Please make sure you have wget or curl installed."
+-	exit 1
+-fi
+-
+
+ #---------------------------------------------------------------------------------
+ # find proper make
+@@ -205,6 +196,7 @@ cd "$SRCDIR"
+ for archive in $archives
+ do
+ 	echo $archive
++	echo source https://downloads.devkitpro.org/$archive
+ 	if [ ! -f $archive ]; then
+ 		$FETCH https://downloads.devkitpro.org/$archive || { echo "Error: Failed to download $archive"; exit 1; }
+ 	fi

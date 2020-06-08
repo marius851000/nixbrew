@@ -1,0 +1,358 @@
+diff --git a/gcc/config.gcc b/gcc/config.gcc
+index cf1a87e2efd..bd79664568e 100644
+--- a/gcc/config.gcc
++++ b/gcc/config.gcc
+@@ -1039,7 +1039,14 @@ aarch64*-*-elf | aarch64*-*-fuchsia* | aarch64*-*-rtems*)
+ 	tmake_file="${tmake_file} aarch64/t-aarch64"
+ 	case $target in
+ 	aarch64-*-elf*)
++		default_use_cxa_atexit=yes
+ 		use_gcc_stdint=wrap
++		tm_file="${tm_file} devkitpro.h"
++		tm_defines="${tm_defines}  TARGET_DEFAULT_ASYNC_UNWIND_TABLES=1"
++		extra_options="${extra_options} devkitpro.opt"
++		case ${enable_threads} in
++			"" | yes | posix) thread_file='posix' ;;
++		esac
+ 		;;
+         aarch64-*-fuchsia*)
+                 tm_file="${tm_file} fuchsia.h"
+diff --git a/gcc/config/aarch64/aarch64-elf-raw.h b/gcc/config/aarch64/aarch64-elf-raw.h
+index da5872cf4d8..ca840ab29cb 100644
+--- a/gcc/config/aarch64/aarch64-elf-raw.h
++++ b/gcc/config/aarch64/aarch64-elf-raw.h
+@@ -22,6 +22,7 @@
+ #ifndef GCC_AARCH64_ELF_RAW_H
+ #define GCC_AARCH64_ELF_RAW_H
+ 
++#define LINK_GCC_C_SEQUENCE_SPEC "--start-group %G %L %(libgloss) --end-group"
+ #define STARTFILE_SPEC " crti%O%s crtbegin%O%s crt0%O%s"
+ #define ENDFILE_SPEC \
+   " crtend%O%s crtn%O%s " \
+diff --git a/gcc/config/aarch64/aarch64-opts.h b/gcc/config/aarch64/aarch64-opts.h
+index ee7bed34924..d1e2742d750 100644
+--- a/gcc/config/aarch64/aarch64-opts.h
++++ b/gcc/config/aarch64/aarch64-opts.h
+@@ -48,6 +48,12 @@ enum aarch64_tls_type {
+   TLS_DESCRIPTORS
+ };
+ 
++/* Which thread pointer access sequence to use.  */
++enum aarch64_tp_type {
++  TP_HARD,
++  TP_SOFT
++};
++
+ /* The code model defines the address generation strategy.
+    Most have a PIC and non-PIC variant.  */
+ enum aarch64_code_model {
+diff --git a/gcc/config/aarch64/aarch64.c b/gcc/config/aarch64/aarch64.c
+index 409ca8d9519..fa57bbf8cd5 100644
+--- a/gcc/config/aarch64/aarch64.c
++++ b/gcc/config/aarch64/aarch64.c
+@@ -15951,8 +15951,24 @@ aarch64_load_tp (rtx target)
+       || !register_operand (target, Pmode))
+     target = gen_reg_rtx (Pmode);
+ 
+-  /* Can return in any reg.  */
+-  emit_insn (gen_aarch64_load_tp_hard (target));
++  if (TARGET_HARD_TP)
++    {
++      /* Can return in any reg.  */
++      emit_insn (gen_aarch64_load_tp_hard (target));
++    }
++  else
++    {
++      /* Always returned in r0.  Immediately copy the result into a pseudo,
++	 otherwise other uses of r0 (e.g. setting up function arguments) may
++	 clobber the value.  */
++
++      rtx tmp;
++
++      emit_insn (gen_aarch64_load_tp_soft ());
++
++      tmp = gen_rtx_REG (DImode, R0_REGNUM);
++      emit_move_insn (target, tmp);
++    }
+   return target;
+ }
+ 
+diff --git a/gcc/config/aarch64/aarch64.h b/gcc/config/aarch64/aarch64.h
+index 24767c747ba..0b1bbb5d79e 100644
+--- a/gcc/config/aarch64/aarch64.h
++++ b/gcc/config/aarch64/aarch64.h
+@@ -1134,6 +1134,10 @@ typedef struct
+ /* Check TLS Descriptors mechanism is selected.  */
+ #define TARGET_TLS_DESC (aarch64_tls_dialect == TLS_DESCRIPTORS)
+ 
++/* Check selected thread pointer access sequence to use.  */
++#define TARGET_HARD_TP (target_thread_pointer == TP_HARD)
++#define TARGET_SOFT_TP (target_thread_pointer == TP_SOFT)
++
+ extern enum aarch64_code_model aarch64_cmodel;
+ 
+ /* When using the tiny addressing model conditional and unconditional branches
+diff --git a/gcc/config/aarch64/aarch64.md b/gcc/config/aarch64/aarch64.md
+index 8c8be3c2740..1257616a659 100644
+--- a/gcc/config/aarch64/aarch64.md
++++ b/gcc/config/aarch64/aarch64.md
+@@ -6789,11 +6789,22 @@
+ (define_insn "aarch64_load_tp_hard"
+   [(set (match_operand:DI 0 "register_operand" "=r")
+ 	(unspec:DI [(const_int 0)] UNSPEC_TLS))]
+-  ""
+-  "mrs\\t%0, tpidr_el0"
++  "TARGET_HARD_TP"
++  "mrs\\t%0, tpidr_el0\\t// aarch64_load_tp_hard"
+   [(set_attr "type" "mrs")]
+ )
+ 
++(define_insn "aarch64_load_tp_soft"
++  [(set (reg:DI 0) (unspec:DI [(const_int 0)] UNSPEC_TLS))
++   (clobber (reg:DI IP0_REGNUM))
++   (clobber (reg:DI IP1_REGNUM))
++   (clobber (reg:DI LR_REGNUM))
++   (clobber (reg:CC CC_REGNUM))]
++  "TARGET_SOFT_TP"
++  "bl\\t__aarch64_read_tp\\t// aarch64_load_tp_soft"
++  [(set_attr "type" "branch")]
++)
++
+ ;; The TLS ABI specifically requires that the compiler does not schedule
+ ;; instructions in the TLS stubs, in order to enable linker relaxation.
+ ;; Therefore we treat the stubs as an atomic sequence.
+diff --git a/gcc/config/aarch64/aarch64.opt b/gcc/config/aarch64/aarch64.opt
+index d99d14c137d..08e52537dc6 100644
+--- a/gcc/config/aarch64/aarch64.opt
++++ b/gcc/config/aarch64/aarch64.opt
+@@ -118,6 +118,21 @@ Enum(aarch64_tls_size) String(32) Value(32)
+ EnumValue
+ Enum(aarch64_tls_size) String(48) Value(48)
+ 
++mtp=
++Target RejectNegative Joined Enum(aarch64_tp_type) Var(target_thread_pointer) Init(TP_HARD)
++Specify how to access the thread pointer.
++
++Enum
++Name(aarch64_tp_type) Type(enum aarch64_tp_type)
++Valid arguments to -mtp=:
++
++EnumValue
++Enum(aarch64_tp_type) String(hard) Value(TP_HARD)
++
++EnumValue
++Enum(aarch64_tp_type) String(soft) Value(TP_SOFT)
++
++
+ march=
+ Target RejectNegative Negative(march=) ToLower Joined Var(aarch64_arch_string)
+ Use features of architecture ARCH.
+@@ -256,7 +271,7 @@ TargetVariable
+ long aarch64_stack_protector_guard_offset = 0
+ 
+ moutline-atomics
+-Target Report Var(aarch64_flag_outline_atomics) Init(2) Save
++Target Report Var(aarch64_flag_outline_atomics) Save
+ Generate local calls to out-of-line atomic operations.
+ 
+ -param=aarch64-sve-compare-costs=
+diff --git a/gcc/config/aarch64/t-aarch64 b/gcc/config/aarch64/t-aarch64
+index 11d20b7be14..02ca761d3bf 100644
+--- a/gcc/config/aarch64/t-aarch64
++++ b/gcc/config/aarch64/t-aarch64
+@@ -159,8 +159,10 @@ aarch64-bti-insert.o: $(srcdir)/config/aarch64/aarch64-bti-insert.c \
+ 		$(srcdir)/config/aarch64/aarch64-bti-insert.c
+ 
+ comma=,
+-MULTILIB_OPTIONS    = $(subst $(comma),/, $(patsubst %, mabi=%, $(subst $(comma),$(comma)mabi=,$(TM_MULTILIB_CONFIG))))
+-MULTILIB_DIRNAMES   = $(subst $(comma), ,$(TM_MULTILIB_CONFIG))
++MULTILIB_OPTIONS    = mcmodel=large fPIC
++MULTILIB_DIRNAMES   = large pic
++MULTILIB_REQUIRED   = mcmodel=large fPIC
++MULTILIB_MATCHES    = fPIC=fpic fPIC=fpie fPIC=fPIE
+ 
+ insn-conditions.md: s-check-sve-md
+ s-check-sve-md: $(srcdir)/config/aarch64/check-sve-md.awk \
+diff --git a/gcc/config/devkitpro.h b/gcc/config/devkitpro.h
+new file mode 100644
+index 00000000000..11ba0f5ab1c
+--- /dev/null
++++ b/gcc/config/devkitpro.h
+@@ -0,0 +1,31 @@
++/* Definitions for devkitPro toolchains.
++   Copyright (C) 2016-2018 Free Software Foundation, Inc.
++
++   This file is part of GCC.
++
++   GCC is free software; you can redistribute it and/or modify it
++   under the terms of the GNU General Public License as published
++   by the Free Software Foundation; either version 3, or (at your
++   option) any later version.
++
++   GCC is distributed in the hope that it will be useful, but WITHOUT
++   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
++   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
++   License for more details.
++
++   Under Section 7 of GPL version 3, you are granted additional
++   permissions described in the GCC Runtime Library Exception, version
++   3.1, as published by the Free Software Foundation.
++
++   You should have received a copy of the GNU General Public License and
++   a copy of the GCC Runtime Library Exception along with this program;
++   see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
++   <http://www.gnu.org/licenses/>.  */
++
++#undef TARGET_OS_CPP_BUILTINS
++#define TARGET_OS_CPP_BUILTINS()                \
++    do {                                        \
++        builtin_define ("__DEVKITA64__");       \
++    } while (0)
++
++
+diff --git a/gcc/config/devkitpro.opt b/gcc/config/devkitpro.opt
+new file mode 100644
+index 00000000000..9acbbf9d27c
+--- /dev/null
++++ b/gcc/config/devkitpro.opt
+@@ -0,0 +1,29 @@
++; Options for devkitPro toolchains.
++
++; Copyright (C) 2011-2018 Free Software Foundation, Inc.
++;
++; This file is part of GCC.
++;
++; GCC is free software; you can redistribute it and/or modify it under
++; the terms of the GNU General Public License as published by the Free
++; Software Foundation; either version 3, or (at your option) any later
++; version.
++;
++; GCC is distributed in the hope that it will be useful, but WITHOUT ANY
++; WARRANTY; without even the implied warranty of MERCHANTABILITY or
++; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++; for more details.
++;
++; You should have received a copy of the GNU General Public License
++; along with GCC; see the file COPYING3.  If not see
++; <http://www.gnu.org/licenses/>.
++
++; See the GCC internals manual (options.texi) for a description of
++; this file's format.
++
++; Please try to keep this file in ASCII collating order.
++
++pthread
++Driver
++
++; This comment is to ensure we retain the blank line above.
+diff --git a/gcc/config/i386/host-mingw32.c b/gcc/config/i386/host-mingw32.c
+index 250fef59b55..36b2239aa5d 100644
+--- a/gcc/config/i386/host-mingw32.c
++++ b/gcc/config/i386/host-mingw32.c
+@@ -44,9 +44,6 @@ static size_t mingw32_gt_pch_alloc_granularity (void);
+ 
+ static inline void w32_error(const char*, const char*, int, const char*);
+ 
+-/* FIXME: Is this big enough?  */
+-static const size_t pch_VA_max_size  = 128 * 1024 * 1024;
+-
+ /* Granularity for reserving address space.  */
+ static size_t va_granularity = 0x10000;
+ 
+@@ -88,9 +85,6 @@ static void *
+ mingw32_gt_pch_get_address (size_t size, int)
+ {
+   void* res;
+-  size = (size + va_granularity - 1) & ~(va_granularity - 1);
+-  if (size > pch_VA_max_size)
+-    return NULL;
+ 
+   /* FIXME: We let system determine base by setting first arg to NULL.
+      Allocating at top of available address space avoids unnecessary
+@@ -100,7 +94,7 @@ mingw32_gt_pch_get_address (size_t size, int)
+      If we allocate at bottom we need to reserve the address as early
+      as possible and at the same point in each invocation. */
+  
+-  res = VirtualAlloc (NULL, pch_VA_max_size,
++  res = VirtualAlloc (NULL, size,
+ 		      MEM_RESERVE | MEM_TOP_DOWN,
+ 		      PAGE_NOACCESS);
+   if (!res)
+@@ -150,7 +144,7 @@ mingw32_gt_pch_use_address (void *addr, size_t size, int fd,
+ 
+   /* Offset must be also be a multiple of allocation granularity for
+      this to work.  We can't change the offset. */ 
+-  if ((offset & (va_granularity - 1)) != 0 || size > pch_VA_max_size)
++  if ((offset & (va_granularity - 1)) != 0)
+     return -1;
+ 
+ 
+diff --git a/gcc/gcc.c b/gcc/gcc.c
+index 9f790db0daf..97f52d0b893 100644
+--- a/gcc/gcc.c
++++ b/gcc/gcc.c
+@@ -793,6 +793,11 @@ proper position among the other output files.  */
+ #endif
+ #endif
+ 
++#ifndef LIBGLOSS_SPEC
++# define LIBGLOSS_SPEC "-lsysbase"
++#endif
++
++
+ /* config.h can define STARTFILE_SPEC to override the default crt0 files.  */
+ #ifndef STARTFILE_SPEC
+ #define STARTFILE_SPEC  \
+@@ -1085,6 +1090,7 @@ static const char *link_spec = LINK_SPEC;
+ static const char *lib_spec = LIB_SPEC;
+ static const char *link_gomp_spec = "";
+ static const char *libgcc_spec = LIBGCC_SPEC;
++static const char *libgloss_spec = LIBGLOSS_SPEC;
+ static const char *endfile_spec = ENDFILE_SPEC;
+ static const char *startfile_spec = STARTFILE_SPEC;
+ static const char *linker_name_spec = LINKER_NAME;
+@@ -1582,6 +1588,7 @@ static struct spec_list static_specs[] =
+   INIT_STATIC_SPEC ("lib",			&lib_spec),
+   INIT_STATIC_SPEC ("link_gomp",		&link_gomp_spec),
+   INIT_STATIC_SPEC ("libgcc",			&libgcc_spec),
++  INIT_STATIC_SPEC ("libgloss",			&libgloss_spec),
+   INIT_STATIC_SPEC ("startfile",		&startfile_spec),
+   INIT_STATIC_SPEC ("cross_compile",		&cross_compile),
+   INIT_STATIC_SPEC ("version",			&compiler_version),
+diff --git a/libgcc/gthr.h b/libgcc/gthr.h
+index f31cf083cbe..649f900aac3 100644
+--- a/libgcc/gthr.h
++++ b/libgcc/gthr.h
+@@ -136,7 +136,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+ /* The pe-coff weak support isn't fully compatible to ELF's weak.
+    For static libraries it might would work, but as we need to deal
+    with shared versions too, we disable it for mingw-targets.  */
+-#ifdef __MINGW32__
++#if defined(__MINGW32__) || defined(__DEVKITA64__)
+ #undef GTHREAD_USE_WEAK
+ #define GTHREAD_USE_WEAK 0
+ #endif
+diff --git a/libstdc++-v3/include/Makefile.am b/libstdc++-v3/include/Makefile.am
+index 80aeb3f8959..308ceedc673 100644
+--- a/libstdc++-v3/include/Makefile.am
++++ b/libstdc++-v3/include/Makefile.am
+@@ -1315,6 +1315,7 @@ ${host_builddir}/gthr.h: ${toplevel_srcdir}/libgcc/gthr.h stamp-${host_alias}
+ 	    -e '/^#/s/\(${uppercase}${uppercase}*\)/_GLIBCXX_\1/g' \
+ 	    -e 's/_GLIBCXX_SUPPORTS_WEAK/__GXX_WEAK__/g' \
+ 	    -e 's/_GLIBCXX___MINGW32_GLIBCXX___/__MINGW32__/g' \
++	    -e 's/_GLIBCXX___DEVKITA64_GLIBCXX___/__DEVKITA64__/g' \
+ 	    -e 's,^#include "\(.*\)",#include <bits/\1>,g' \
+ 	    < $< > $@
+ 
+diff --git a/libstdc++-v3/include/Makefile.in b/libstdc++-v3/include/Makefile.in
+index eb437ad8d8d..6e076fc63bd 100644
+--- a/libstdc++-v3/include/Makefile.in
++++ b/libstdc++-v3/include/Makefile.in
+@@ -1793,6 +1793,7 @@ ${host_builddir}/gthr.h: ${toplevel_srcdir}/libgcc/gthr.h stamp-${host_alias}
+ 	    -e '/^#/s/\(${uppercase}${uppercase}*\)/_GLIBCXX_\1/g' \
+ 	    -e 's/_GLIBCXX_SUPPORTS_WEAK/__GXX_WEAK__/g' \
+ 	    -e 's/_GLIBCXX___MINGW32_GLIBCXX___/__MINGW32__/g' \
++	    -e 's/_GLIBCXX___DEVKITA64_GLIBCXX___/__DEVKITA64__/g' \
+ 	    -e 's,^#include "\(.*\)",#include <bits/\1>,g' \
+ 	    < $< > $@
+ 

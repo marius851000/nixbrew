@@ -1,0 +1,6 @@
+233,234c233,234
+< echo "stripping installed binaries"
+< . ./strip_bins.sh
+---
+> #echo "stripping installed binaries"
+> #. ./strip_bins.sh

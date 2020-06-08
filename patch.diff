@@ -1,0 +1,105 @@
+diff --git a/build-devkit.sh b/build-devkit.sh
+index af47873..b8518fc 100755
+--- a/build-devkit.sh
++++ b/build-devkit.sh
+@@ -230,8 +230,8 @@ if [ ! -z $CROSSBUILD ] && grep -q "mingw" <<<"$CROSSBUILD" ; then
+ 	cp -v	$CROSSBINPATH/libwinpthread-1.dll $prefix/libexec/gcc/$target/$GCC_VER/
+ fi
+ 
+-echo "stripping installed binaries"
+-. ./strip_bins.sh
++# echo "stripping installed binaries"
++# . ./strip_bins.sh
+ 
+ #---------------------------------------------------------------------------------
+ # Clean up temporary files and source directories
+diff --git a/dkarm-eabi/patches/gcc-10.1.0.patch b/dkarm-eabi/patches/gcc-10.1.0.patch
+index a814931..1baa0c1 100644
+--- a/dkarm-eabi/patches/gcc-10.1.0.patch
++++ b/dkarm-eabi/patches/gcc-10.1.0.patch
+@@ -236,3 +236,66 @@ index dddddc7c444..c2502597953 100644
+  # the option is safe.
+ -LIB2_DIVMOD_EXCEPTION_FLAGS := -fexceptions
+ +LIB2_DIVMOD_EXCEPTION_FLAGS := -fno-exceptions
++diff --git a/libcpp/expr.c b/libcpp/expr.c
++index 9f02091..f3a75be 100644
++--- a/libcpp/expr.c
+++++ b/libcpp/expr.c
++@@ -797,12 +797,12 @@ cpp_classify_number (cpp_reader *pfile, const cpp_token *token,
++                                ? N_("use of C++11 long long integer constant")
++                                : N_("use of C99 long long integer constant");
++
++-         if (CPP_OPTION (pfile, c99))
+++         /*if (CPP_OPTION (pfile, c99))
++             cpp_warning_with_line (pfile, CPP_W_LONG_LONG, virtual_location,
++                                   0, message);
++           else
++             cpp_pedwarning_with_line (pfile, CPP_W_LONG_LONG,
++-                                     virtual_location, 0, message);
+++                                     virtual_location, 0, message);*/
++         }
++
++       result |= CPP_N_INTEGER;
++
++diff --git a/libcpp/macro.c b/libcpp/macro.c
++index 2573f31..4d136ce 100644
++--- a/libcpp/macro.c
+++++ b/libcpp/macro.c
++@@ -180,8 +180,8 @@ class vaopt_state {
++       {
++        if (m_state == 2 && token->type == CPP_PASTE)
++          {
++-           cpp_error_at (m_pfile, CPP_DL_ERROR, token->src_loc,
++-                         vaopt_paste_error);
+++           /*cpp_error_at (m_pfile, CPP_DL_ERROR, token->src_loc,
+++                         vaopt_paste_error);*/
++            return ERROR;
++          }
++        /* Advance states before further considering this token, in
++@@ -209,8 +209,8 @@ class vaopt_state {
++
++                if (was_paste)
++                  {
++-                   cpp_error_at (m_pfile, CPP_DL_ERROR, token->src_loc,
++-                                 vaopt_paste_error);
+++                   /*cpp_error_at (m_pfile, CPP_DL_ERROR, token->src_loc,
+++                                 vaopt_paste_error);*/
++                    return ERROR;
++                  }
++
++@@ -3487,7 +3487,7 @@ create_iso_definition (cpp_reader *pfile)
++             function-like macros, but not at the end.  */
++          if (following_paste_op)
++            {
++-             cpp_error (pfile, CPP_DL_ERROR, paste_op_error_msg);
+++             //cpp_error (pfile, CPP_DL_ERROR, paste_op_error_msg);
++              goto out;
++            }
++          if (!vaopt_tracker.completed ())
++@@ -3502,7 +3502,7 @@ create_iso_definition (cpp_reader *pfile)
++             function-like macros, but not at the beginning.  */
++          if (macro->count == 1)
++            {
++-             cpp_error (pfile, CPP_DL_ERROR, paste_op_error_msg);
+++             //cpp_error (pfile, CPP_DL_ERROR, paste_op_error_msg);
++              goto out;
++            }
+diff --git a/dkarm-eabi/scripts/build-crtls.sh b/dkarm-eabi/scripts/build-crtls.sh
+index 3b13e4e..2ad5b22 100755
+--- a/dkarm-eabi/scripts/build-crtls.sh
++++ b/dkarm-eabi/scripts/build-crtls.sh
+@@ -14,6 +14,7 @@ cd $BUILDDIR
+ mkdir -p rules
+ cd rules
+ tar -xvf $SRCDIR/devkitarm-rules-$DKARM_RULES_VER.tar.xz
++patch Makefile $SRCDIR/rules_arm_makefile_install.diff
+ make install
+ 
+ #---------------------------------------------------------------------------------
+@@ -24,5 +25,5 @@ cd $BUILDDIR
+ mkdir -p crtls
+ cd crtls
+ tar -xvf $SRCDIR/devkitarm-crtls-$DKARM_CRTLS_VER.tar.xz
++patch Makefile $SRCDIR/crlts_arm_makefile_install.diff
+ make install
+-

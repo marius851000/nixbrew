@@ -1,0 +1,6 @@
+11,12c11,12
+< 	@mkdir -p $(DESTDIR)/opt/devkitpro/devkitARM
+< 	@cp -v $(FILES) $(DESTDIR)/opt/devkitpro/devkitARM
+---
+> 	@mkdir -p $(DEVKITARM)
+> 	@cp -v $(FILES) $(DEVKITARM)

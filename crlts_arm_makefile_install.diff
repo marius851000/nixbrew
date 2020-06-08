@@ -1,0 +1,8 @@
+19,21c19,21
+< 	@mkdir -p $(DESTDIR)/opt/devkitpro/devkitARM/arm-none-eabi/lib
+< 	@cp -v *.specs *.ld *.mem $(DESTDIR)/opt/devkitpro/devkitARM/arm-none-eabi/lib
+< 	@cp -rv thumb armv6k *.o $(DESTDIR)/opt/devkitpro/devkitARM/arm-none-eabi/lib
+---
+> 	@mkdir -p $(DEVKITARM)/arm-none-eabi/lib
+> 	@cp -v *.specs *.ld *.mem $(DEVKITARM)/arm-none-eabi/lib
+> 	@cp -rv thumb armv6k *.o $(DEVKITARM)/arm-none-eabi/lib
