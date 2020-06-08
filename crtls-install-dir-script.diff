@@ -1,4 +1,0 @@
-17a18
-> patch Makefile $SRCDIR/rules_makefile_install.diff
-27a29
-> patch Makefile $SRCDIR/crlts_makefile_install.diff
