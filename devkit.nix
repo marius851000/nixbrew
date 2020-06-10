@@ -1,4 +1,5 @@
-{ stdenv, fetchFromGitHub, which, gmp, mpfr, libmpc, zlib }:
+{ stdenv, fetchFromGitHub, which, gmp, mpfr, libmpc, zlib, texinfo }:
+
 with builtins;
 
 let
@@ -56,7 +57,7 @@ architecture: stdenv.mkDerivation {
 
 	#DESTDIR = "$out"
 
-	nativeBuildInputs = [ which ];
+	nativeBuildInputs = [ which texinfo ];
 
 	buildInputs = [ gmp mpfr libmpc zlib ];
 
@@ -65,7 +66,7 @@ architecture: stdenv.mkDerivation {
 		./patch.diff
 	];
 
-	postPatch = (if (architecture == "arm") then (''
+	postPatch = if (architecture == "arm") then (''
 		cp ${srcs.devkitarm_rules_1_0_0} devkitarm-rules-1.0.0.tar.xz
 		cp ${srcs.devkitarm_crtls_1_0_0} devkitarm-crtls-1.0.0.tar.xz
 		cp ${srcs.binutils_2_32} binutils-2.32.tar.xz
@@ -74,13 +75,20 @@ architecture: stdenv.mkDerivation {
 		cp ${srcs.gdb_8_2_1} gdb-8.2.1.tar.xz
 		cp ${./crlts_arm_makefile_install.diff} crlts_arm_makefile_install.diff
 		cp ${./rules_arm_makefile_install.diff} rules_arm_makefile_install.diff
-	'') else "");
+		cat ${./gcc-10.1.diff} >> dkarm-eabi/patches/gcc-10.1.0.patch
+	'') else if (architecture == "a64") then (''
+		cat ${./gcc-10.1.diff} >> dka64/patches/gcc-10.1.0.patch
+	'') else ""; #TODO: finish a64 and ppc
 
 	postConfigure = ''
 		cp ${compileFile architecture} ./config.sh
 	'';
 
-	buildPhase = ''
+	installPhase = ''
 		sh build-devkit.sh
 	'';
+
 }
+
+
+#TODO: cross compilation

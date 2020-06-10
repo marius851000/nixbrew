@@ -1,3 +1,24 @@
+
+diff --git a/libcpp/expr.c b/libcpp/expr.c
+index 2ae9be0..30784bd 100644
+--- a/libcpp/expr.c
++++ b/libcpp/expr.c
+@@ -797,12 +797,12 @@ cpp_classify_number (cpp_reader *pfile, const cpp_token *token,
+ 				? N_("use of C++11 long long integer constant")
+ 		                : N_("use of C99 long long integer constant");
+
+-	  if (CPP_OPTION (pfile, c99))
++/*	  if (CPP_OPTION (pfile, c99))
+             cpp_warning_with_line (pfile, CPP_W_LONG_LONG, virtual_location,
+ 				   0, message);
+           else
+             cpp_pedwarning_with_line (pfile, CPP_W_LONG_LONG,
+-				      virtual_location, 0, message);
++				      virtual_location, 0, message);*/
+         }
+
+       result |= CPP_N_INTEGER;
+
 diff --git a/libcpp/macro.c b/libcpp/macro.c
 index 2573f31..349dc26 100644
 --- a/libcpp/macro.c
@@ -14,7 +35,7 @@ index 2573f31..349dc26 100644
  	  }
  	/* Advance states before further considering this token, in
 @@ -209,8 +209,8 @@ class vaopt_state {
- 
+
  		if (was_paste)
  		  {
 -		    cpp_error_at (m_pfile, CPP_DL_ERROR, token->src_loc,
@@ -23,7 +44,7 @@ index 2573f31..349dc26 100644
 +				  vaopt_paste_error);*/
  		    return ERROR;
  		  }
- 
+
 @@ -3487,7 +3487,7 @@ create_iso_definition (cpp_reader *pfile)
  	     function-like macros, but not at the end.  */
  	  if (following_paste_op)
@@ -41,4 +62,3 @@ index 2573f31..349dc26 100644
 +	      //cpp_error (pfile, CPP_DL_ERROR, paste_op_error_msg);
  	      goto out;
  	    }
- 
