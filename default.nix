@@ -58,6 +58,7 @@ in rec {
 	# library
 	library3ds = rec {
 		libctru_1_9_0 = pkgs.callPackage ./library/libctru/1_9_0.nix { inherit devkitArm general-tools; };
+		libctru_1_3_0 = pkgs.callPackage ./library/libctru/1_3_0.nix { inherit devkitArm general-tools; };
 		libctru = libctru_1_9_0;
 
 		citro3d_1_6_0 = pkgs.callPackage ./library/citro3d/1_6_0.nix { inherit devkitArm libctru; };
