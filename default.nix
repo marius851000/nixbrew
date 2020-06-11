@@ -48,7 +48,7 @@ in rec {
 	bannertool = pkgs.callPackage ./nativePkgs/bannertool/default.nix {};
 
 	makerom = pkgs.callPackage ./nativePkgs/makerom/default.nix {};
-	
+
 	# library
 	library3ds = rec {
 		libctru_1_9_0 = pkgs.callPackage ./library/libctru/1_9_0.nix { inherit devkitArm general-tools; };
@@ -77,7 +77,7 @@ in rec {
 
 	# homebrew
 	homebrew3ds = with library3ds; rec {
-		checkpoint = pkgs.callPackage ./homebrew/checkpoint/3ds.nix { inherit devkitArm libctru citro3d citro2d tex3ds bzip2 _3dstool bannertool; } ;
+		checkpoint = pkgs.callPackage ./homebrew/checkpoint/3ds.nix { inherit devkitArm libctru citro3d citro2d tex3ds bzip2 _3dstool bannertool makerom; } ;
 	};
 
 }

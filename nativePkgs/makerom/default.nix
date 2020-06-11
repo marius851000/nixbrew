@@ -13,5 +13,10 @@ stdenv.mkDerivation rec {
 
 	prePatch = "cd makerom";
 
+	installPhase = ''
+		mkdir -p $out/bin
+		cp makerom $out/bin
+	'';
+	
 	enableParallelBuilding = true;
 }

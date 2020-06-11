@@ -1,5 +1,5 @@
 {stdenv, fetchgit, devkitArm, libctru, citro3d, citro2d, buildEnv, python3, tex3ds,
-	bzip2, _3dstool, bannertool}:
+	bzip2, _3dstool, bannertool, makerom}:
 #TODO: switch version
 #TODO: finish
 let
@@ -19,7 +19,7 @@ stdenv.mkDerivation rec {
 		sha256 = "09kkligcx45gmm2vwr6n9vmx1pqf6n0qk04209qsqgdx64pj6wb2";
 	};
 
-	nativeBuildInputs = [ python3 tex3ds _3dstool bannertool ];
+	nativeBuildInputs = [ python3 tex3ds _3dstool bannertool makerom ];
 
 	buildInputs = [ bzip2 ];
 
