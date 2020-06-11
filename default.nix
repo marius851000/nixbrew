@@ -62,6 +62,7 @@ in rec {
 		libctru = libctru_1_9_0;
 
 		citro3d_1_6_0 = pkgs.callPackage ./library/citro3d/1_6_0.nix { inherit devkitArm libctru; };
+		citro3d_1_3_0 = pkgs.callPackage ./library/citro3d/1_3_0.nix { inherit devkitArm libctru_1_3_0; };
 		citro3d = citro3d_1_6_0;
 
 		citro2d_1_3_1 = pkgs.callPackage ./library/citro2d/1_3_1.nix { inherit devkitArm picasso libctru citro3d general-tools; };
