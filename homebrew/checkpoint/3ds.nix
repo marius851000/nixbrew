@@ -32,6 +32,11 @@ stdenv.mkDerivation rec {
 
 	makeFlags = [ "3ds" "PORTLIBS=${bzip2}" ];
 
+	installPhase = ''
+		mkdir $out
+		cp 3ds/out/* $out
+	'';
+	
 	DEVKITARM = "${mergedDevkit}/devkitARM";
 	DEVKITPRO = "${mergedDevkit}";
 }
