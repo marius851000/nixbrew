@@ -9,11 +9,17 @@ let
       });
     };
 
+	addDevkitVariable = stdenv: stdenv //
+    { mkDerivation = args: stdenv.mkDerivation (args // {
+			#TODO: automatize DEVKITARM and DEVKITPRO
+    });
+  };
+
 	cross3dsPkgs = pkgs.pkgsCross.arm-embedded;
 
-	cross3dsStdenv = addCFlags
+	cross3dsStdenv = addDevkitVariable (addCFlags
 		(pkgs.overrideCC cross3dsPkgs.stdenv devkitArmStandard)
-		"-march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft -O2 -mword-relocations -ffunction-sections -fdata-sections";
+		"-march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft -O2 -mword-relocations -ffunction-sections -fdata-sections");
 
 
 
@@ -69,6 +75,7 @@ in rec {
 						--replace "bin_PROGRAMS = bzip2 bzip2recover" ""
 					aclocal
 					automake --add-missing'';
+				postInstall = "rm -rf $out/bin";
 				nativeBuildInputs = old.nativeBuildInputs ++ [ pkgs.automake ];
 				outputs = [ "out" ];
 				makeFlags = [ "CFLAGS=$(NIX_CFLAGS_COMPILE)" ];
