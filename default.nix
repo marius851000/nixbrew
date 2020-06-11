@@ -82,6 +82,8 @@ in rec {
 				outputs = [ "out" ];
 				makeFlags = [ "CFLAGS=$(NIX_CFLAGS_COMPILE)" ];
 			})).override {stdenv = cross3dsStdenv; linkStatic = true;};
+
+		sf2dlib = pkgs.callPackage ./library/sf2dlib/default.nix { inherit devkitArm libctru citro3d_1_3_0 picasso general-tools; };
 	};
 
 	# homebrew
