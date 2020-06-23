@@ -55,6 +55,8 @@ in rec {
 
 	makerom = pkgs.callPackage ./nativePkgs/makerom/default.nix {};
 
+	doltool = pkgs.callPackage ./nativePkgs/doltool/default.nix {};
+	
 	# library
 	library3ds = rec {
 		libctru_1_9_0 = pkgs.callPackage ./library/libctru/1_9_0.nix { inherit devkitArm general-tools; };
